@@ -99,7 +99,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
              </div>
              <div>
                <h4 className="font-bold text-emerald mb-4">Contact</h4>
-               <p className="text-sm text-gray-400">taxquerycynergy@gmail.com</p>
+               <p className="text-sm text-gray-400">taxteam@cynergytaxandbooks.com</p>
                <p className="text-sm text-gray-400 mt-2">See About page for office locations.</p>
              </div>
              <div>
