@@ -1,8 +1,56 @@
-import React from 'react';
-import { Briefcase, User, Globe, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { Briefcase, User, Globe, Check, Sparkles, Lightbulb, Loader2 } from 'lucide-react';
 import Button from '../components/Button';
+import { GoogleGenAI } from "@google/genai";
 
 const TaxServices: React.FC = () => {
+  const [profession, setProfession] = useState('');
+  const [deductions, setDeductions] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const callGeminiWithRetry = async (prompt: string, retries = 3, delay = 1000): Promise<string> => {
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+        });
+        const text = response.text;
+        if (!text) throw new Error("Empty response");
+        return text;
+    } catch (error) {
+        if (retries === 0) throw error;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return callGeminiWithRetry(prompt, retries - 1, delay * 2);
+    }
+  };
+
+  const generateDeductions = async () => {
+    if (!profession.trim()) return;
+    
+    setLoading(true);
+    setError(null);
+    setDeductions(null);
+
+    try {
+        const prompt = `You are a Senior US Tax Strategist. List 5 specific, high-value tax deductions available to a "${profession}" in the US. 
+        Format the output as a clean HTML unordered list (<ul><li>...</li></ul>). 
+        Do not use markdown formatting (like \`\`\`html). 
+        Do not include a preamble or conclusion, just the list.
+        Make each point concise but informative.`;
+
+        const result = await callGeminiWithRetry(prompt);
+        setDeductions(result);
+
+    } catch (err) {
+        console.error(err);
+        setError("Failed to retrieve deductions. Please try again later.");
+    } finally {
+        setLoading(false);
+    }
+  };
+
   return (
     <div className="w-full bg-slate-50 min-h-screen pb-20">
       {/* Header */}
@@ -175,6 +223,77 @@ const TaxServices: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Smart Deduction Discovery - NEW SECTION */}
+        <div className="bg-navy rounded-2xl shadow-xl mt-12 mb-12 py-12 relative overflow-hidden">
+            {/* Background elements */}
+            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-emerald opacity-10 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-burntOrange opacity-10 rounded-full blur-3xl"></div>
+
+            <div className="max-w-4xl mx-auto px-6 relative z-10">
+                <div className="text-center mb-8">
+                    <div className="inline-flex items-center justify-center p-3 bg-white/10 rounded-full mb-4 backdrop-blur-sm border border-white/20">
+                        <Sparkles className="h-6 w-6 text-emerald" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-white mb-2">Smart Deduction Discovery</h2>
+                    <p className="text-gray-300">
+                        Powered by Gemini AI. Enter your profession to uncover high-value tax write-offs tailored to your industry.
+                    </p>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8">
+                    <div className="flex flex-col md:flex-row gap-4 mb-6">
+                        <input 
+                            type="text" 
+                            value={profession}
+                            onChange={(e) => setProfession(e.target.value)}
+                            placeholder="e.g. Real Estate Agent, Software Engineer, Dentist..."
+                            className="flex-grow p-4 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald focus:border-emerald text-lg outline-none transition-all placeholder:text-gray-400"
+                            onKeyDown={(e) => e.key === 'Enter' && generateDeductions()}
+                        />
+                        <Button 
+                            onClick={generateDeductions} 
+                            disabled={loading || !profession.trim()}
+                            variant="accent"
+                            className="md:w-auto w-full flex items-center justify-center gap-2 min-w-[200px]"
+                        >
+                            {loading ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (
+                                <Lightbulb className="h-5 w-5" />
+                            )}
+                            {loading ? 'Analyzing...' : 'Discover Deductions'}
+                        </Button>
+                    </div>
+
+                    {error && (
+                        <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-100 flex items-center">
+                            <span className="mr-2">⚠️</span> {error}
+                        </div>
+                    )}
+
+                    {deductions && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <h3 className="text-navy font-bold text-xl mb-4 flex items-center border-b border-gray-100 pb-2">
+                                <Check className="h-5 w-5 text-emerald mr-2" />
+                                Top Deductions for <span className="text-emerald ml-1">{profession}</span>:
+                            </h3>
+                            <div 
+                                className="prose prose-emerald max-w-none text-gray-700
+                                    [&>ul]:space-y-3 [&>ul]:pl-0
+                                    [&>ul>li]:bg-slate-50 [&>ul>li]:p-4 [&>ul>li]:rounded-r-lg 
+                                    [&>ul>li]:border-l-4 [&>ul>li]:border-burntOrange 
+                                    [&>ul>li]:list-none [&>ul>li]:shadow-sm"
+                                dangerouslySetInnerHTML={{ __html: deductions }}
+                            />
+                            <p className="text-xs text-gray-400 mt-6 italic text-center">
+                                * AI-generated suggestions for informational purposes only. Consult with our CPAs for eligibility.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
 
         <div className="mt-12 text-center">
